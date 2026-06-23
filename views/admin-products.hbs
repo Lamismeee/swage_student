@@ -1,0 +1,64 @@
+<div class="page-container">
+  <div class="page-header admin-header">
+    <div>
+      <a href="/" class="back-link">Back to shop</a>
+      <h1 class="page-title">Product Admin</h1>
+      <span class="page-count">{{products.length}} products</span>
+    </div>
+    <a href="/admin/products/new" class="btn-primary admin-create-btn">New product</a>
+  </div>
+
+  {{#if message}}
+    <div class="alert alert-success">{{message}}</div>
+  {{/if}}
+
+  {{#if products.length}}
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Category</th>
+            <th>Type</th>
+            <th>Price</th>
+            <th>Badge</th>
+            <th class="admin-actions-col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#each products}}
+            <tr>
+              <td>
+                <div class="admin-product-cell">
+                  <img src="{{image}}" alt="{{name}}" class="admin-product-img">
+                  <div>
+                    <div class="admin-product-name">{{name}}</div>
+                    <div class="admin-product-desc">{{desc}}</div>
+                  </div>
+                </div>
+              </td>
+              <td>{{category}}</td>
+              <td>{{type}}</td>
+              <td>{{currency price}}</td>
+              <td>{{#if badge}}{{badge}}{{else}}-{{/if}}</td>
+              <td>
+                <div class="admin-row-actions">
+                  <a href="/admin/products/{{id}}/edit" class="btn-ghost">Edit</a>
+                  <form method="POST" action="/admin/products/{{id}}/delete">
+                    <button type="submit" class="btn-danger">Delete</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {{/each}}
+        </tbody>
+      </table>
+    </div>
+  {{else}}
+    <div class="empty-state">
+      <h2 class="empty-title">No products yet</h2>
+      <p class="empty-sub">Create the first product to show it in the shop.</p>
+      <a href="/admin/products/new" class="btn-primary">New product</a>
+    </div>
+  {{/if}}
+</div>

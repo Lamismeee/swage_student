@@ -1,34 +1,147 @@
-name: CI
+name: CD / Auto Deploy
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
-  test:
-    name: Run unit tests
+  gate:
+    name: Resolve deployment targets
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
+    runs-on: ubuntu-latest
+    outputs:
+      has_render_hook: ${{ steps.flags.outputs.has_render_hook }}
+      has_render_healthcheck: ${{ steps.flags.outputs.has_render_healthcheck }}
+      has_railway: ${{ steps.flags.outputs.has_railway }}
+      has_railway_healthcheck: ${{ steps.flags.outputs.has_railway_healthcheck }}
+
+    steps:
+      - id: flags
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+          RENDER_HEALTHCHECK_URL: ${{ secrets.RENDER_HEALTHCHECK_URL }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+          RAILWAY_SERVICE: ${{ secrets.RAILWAY_SERVICE }}
+          RAILWAY_HEALTHCHECK_URL: ${{ secrets.RAILWAY_HEALTHCHECK_URL }}
+        run: |
+          if [ -n "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "has_render_hook=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_render_hook=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [ -n "$RENDER_HEALTHCHECK_URL" ]; then
+            echo "has_render_healthcheck=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_render_healthcheck=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [ -n "$RAILWAY_TOKEN" ] && [ -n "$RAILWAY_PROJECT_ID" ] && [ -n "$RAILWAY_SERVICE" ]; then
+            echo "has_railway=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_railway=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [ -n "$RAILWAY_HEALTHCHECK_URL" ]; then
+            echo "has_railway_healthcheck=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_railway_healthcheck=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Write deployment summary
+        run: |
+          {
+            echo "## Auto deployment"
+            echo ""
+            echo "- Source branch: \`${{ github.event.workflow_run.head_branch }}\`"
+            echo "- Source commit: \`${{ github.event.workflow_run.head_sha }}\`"
+            echo "- Render deploy hook configured: \`${{ steps.flags.outputs.has_render_hook }}\`"
+            echo "- Railway CLI deployment configured: \`${{ steps.flags.outputs.has_railway }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-render:
+    name: Deploy Render
+    needs: gate
+    if: ${{ needs.gate.outputs.has_render_hook == 'true' }}
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Trigger Render deploy hook
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: curl --fail --silent --show-error --request POST "$RENDER_DEPLOY_HOOK_URL"
+
+      - name: Wait for Render health check
+        if: ${{ needs.gate.outputs.has_render_healthcheck == 'true' }}
+        env:
+          RENDER_HEALTHCHECK_URL: ${{ secrets.RENDER_HEALTHCHECK_URL }}
+        run: |
+          for attempt in {1..30}; do
+            status_code="$(curl --output /dev/null --silent --write-out "%{http_code}" "$RENDER_HEALTHCHECK_URL" || true)"
+            if [ "$status_code" = "200" ]; then
+              echo "Render health check is healthy."
+              exit 0
+            fi
+
+            echo "Attempt $attempt/30 returned HTTP $status_code. Waiting 10s..."
+            sleep 10
+          done
+
+          echo "Render health check never became healthy." >&2
+          exit 1
+
+  deploy-railway:
+    name: Deploy Railway
+    needs: gate
+    if: ${{ needs.gate.outputs.has_railway == 'true' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
         uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
         with:
-          node-version: '22.22.2'
-          cache: 'npm'
+          ref: ${{ github.event.workflow_run.head_sha }}
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Deploy with Railway CLI
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+          RAILWAY_SERVICE: ${{ secrets.RAILWAY_SERVICE }}
+          RAILWAY_ENVIRONMENT: ${{ secrets.RAILWAY_ENVIRONMENT }}
+        run: |
+          cmd=(npx --yes @railway/cli up --ci --service "$RAILWAY_SERVICE" --project "$RAILWAY_PROJECT_ID")
+          if [ -n "$RAILWAY_ENVIRONMENT" ]; then
+            cmd+=(--environment "$RAILWAY_ENVIRONMENT")
+          fi
+          "${cmd[@]}"
 
-      - name: Run tests
-        run: npm test
+      - name: Wait for Railway health check
+        if: ${{ needs.gate.outputs.has_railway_healthcheck == 'true' }}
+        env:
+          RAILWAY_HEALTHCHECK_URL: ${{ secrets.RAILWAY_HEALTHCHECK_URL }}
+        run: |
+          for attempt in {1..30}; do
+            status_code="$(curl --output /dev/null --silent --write-out "%{http_code}" "$RAILWAY_HEALTHCHECK_URL" || true)"
+            if [ "$status_code" = "200" ]; then
+              echo "Railway health check is healthy."
+              exit 0
+            fi
 
-      - name: Run coverage
-        run: npm run test:coverage
+            echo "Attempt $attempt/30 returned HTTP $status_code. Waiting 10s..."
+            sleep 10
+          done
+
+          echo "Railway health check never became healthy." >&2
+          exit 1
 

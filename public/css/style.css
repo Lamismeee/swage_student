@@ -904,3 +904,112 @@ main { flex: 1; }
   transition: background .2s, color .2s;
 }
 .btn-ghost:hover { background: var(--ink); color: var(--cream); }
+
+/* Admin CRUD */
+.admin-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+}
+.admin-create-btn,
+.admin-save-btn {
+  margin-top: 0;
+}
+.admin-table-wrap {
+  overflow-x: auto;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.admin-table {
+  width: 100%;
+  min-width: 860px;
+  border-collapse: collapse;
+}
+.admin-table th,
+.admin-table td {
+  padding: 18px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: middle;
+}
+.admin-table th {
+  color: var(--accent);
+  font-size: 12px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.admin-table tr:last-child td {
+  border-bottom: none;
+}
+.admin-product-cell {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 300px;
+}
+.admin-product-img {
+  width: 58px;
+  height: 58px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+.admin-product-name {
+  color: var(--text);
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.admin-product-desc {
+  color: var(--muted);
+  font-size: 13px;
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-actions-col {
+  width: 180px;
+}
+.admin-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 8px 16px;
+  border: 1px solid rgba(224,82,82,.45);
+  border-radius: var(--radius-sm);
+  background: rgba(224,82,82,.12);
+  color: var(--danger);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.btn-danger:hover {
+  background: rgba(224,82,82,.2);
+}
+.admin-form {
+  max-width: 920px;
+}
+.admin-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+@media (max-width: 620px) {
+  .admin-header,
+  .admin-form-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

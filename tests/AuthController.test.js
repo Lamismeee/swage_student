@@ -10,6 +10,8 @@ const backup   = path.join(__dirname, '..', 'data', 'accounts.json.bak');
 
 function mockRes() {
   const res = {};
+  res.status   = jest.fn(() => res);
+  res.send     = jest.fn(() => res);
   res.render   = jest.fn(() => res);
   res.redirect = jest.fn(() => res);
   res.locals   = {};
@@ -37,6 +39,44 @@ describe('requireLogin', () => {
     const next = jest.fn();
     authCtrl.requireLogin(req, res, next);
     expect(next).toHaveBeenCalled();
+  });
+});
+
+describe('requireAdmin', () => {
+  test('redirects to /login when not authenticated', () => {
+    const req = { session: {} };
+    const res = mockRes();
+    const next = jest.fn();
+    authCtrl.requireAdmin(req, res, next);
+    expect(res.redirect).toHaveBeenCalledWith('/login?error=1');
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  test('returns 403 for a customer account', () => {
+    const req = { session: { user: { id: 1, role: 'customer' } } };
+    const res = mockRes();
+    const next = jest.fn();
+    authCtrl.requireAdmin(req, res, next);
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.send).toHaveBeenCalledWith('Forbidden: staff access required.');
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  test('allows staff and admin roles', () => {
+    const next = jest.fn();
+
+    authCtrl.requireAdmin(
+      { session: { user: { id: 1, role: 'staff' } } },
+      mockRes(),
+      next
+    );
+    authCtrl.requireAdmin(
+      { session: { user: { id: 2, role: 'admin' } } },
+      mockRes(),
+      next
+    );
+
+    expect(next).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -87,6 +127,7 @@ describe('login', () => {
     authCtrl.login(req, res);
     expect(req.session.user).toBeDefined();
     expect(req.session.user.email).toBe(CREDS.email);
+    expect(res.locals.user.email).toBe(CREDS.email);
     expect(res.redirect).toHaveBeenCalledWith('/');
   });
 
@@ -108,6 +149,18 @@ describe('logout', () => {
     authCtrl.logout(req, res);
     expect(req.session.user).toBeUndefined();
     expect(res.redirect).toHaveBeenCalledWith('/');
+  });
+});
+
+describe('showRegister', () => {
+  test('renders the register page and success flag', () => {
+    const req = { session: {}, query: { success: '1' } };
+    const res = mockRes();
+    authCtrl.showRegister(req, res);
+    expect(res.render).toHaveBeenCalledWith('register', expect.objectContaining({
+      success: true,
+      cartCount: 0,
+    }));
   });
 });
 
@@ -138,5 +191,17 @@ describe('register', () => {
     const res = mockRes();
     authCtrl.register(req, res);
     expect(res.render.mock.calls[0][1].error).toMatch(/registered/i);
+  });
+});
+
+describe('showProfile', () => {
+  test('renders the current user profile', () => {
+    const req = { session: { user: { id: 1, name: 'Alice' } } };
+    const res = mockRes();
+    authCtrl.showProfile(req, res);
+    expect(res.render).toHaveBeenCalledWith('profile', expect.objectContaining({
+      user: req.session.user,
+      cartCount: 0,
+    }));
   });
 });

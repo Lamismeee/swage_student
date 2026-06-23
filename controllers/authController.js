@@ -12,6 +12,12 @@ exports.requireLogin = (req, res, next) => {
   res.redirect('/login?error=1');
 };
 
+exports.requireAdmin = (req, res, next) => {
+  if (!req.session.user) return res.redirect('/login?error=1');
+  if (['admin', 'staff'].includes(req.session.user.role)) return next();
+  return res.status(403).send('Forbidden: staff access required.');
+};
+
 exports.showLogin = (req, res) => {
   const cart = getCart(req);
   res.render('login', {

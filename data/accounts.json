@@ -1,1 +1,47 @@
-[]
+[
+  {
+    "id": 1001,
+    "name": "Nguyen Van An",
+    "email": "customer1@swagstore.test",
+    "address": "12 Nguyen Hue, District 1, Ho Chi Minh City",
+    "passwordHash": "$2a$10$.cpVXVZHUecFA/n0/pQDPORYDgM2p5EDLWqc3l.kYRSY0vzVhm.M6",
+    "role": "customer",
+    "createdAt": "2026-06-03T00:00:00.000Z"
+  },
+  {
+    "id": 1002,
+    "name": "Tran Thi Binh",
+    "email": "customer2@swagstore.test",
+    "address": "45 Le Loi, District 3, Ho Chi Minh City",
+    "passwordHash": "$2a$10$.cpVXVZHUecFA/n0/pQDPORYDgM2p5EDLWqc3l.kYRSY0vzVhm.M6",
+    "role": "customer",
+    "createdAt": "2026-06-03T00:00:00.000Z"
+  },
+  {
+    "id": 1003,
+    "name": "Le Minh Chau",
+    "email": "customer3@swagstore.test",
+    "address": "88 Vo Van Tan, District 10, Ho Chi Minh City",
+    "passwordHash": "$2a$10$.cpVXVZHUecFA/n0/pQDPORYDgM2p5EDLWqc3l.kYRSY0vzVhm.M6",
+    "role": "customer",
+    "createdAt": "2026-06-03T00:00:00.000Z"
+  },
+  {
+    "id": 2001,
+    "name": "Pham Hoang Staff",
+    "email": "staff1@swagstore.test",
+    "address": "SwagStore Office, Ho Chi Minh City",
+    "passwordHash": "$2a$10$.cpVXVZHUecFA/n0/pQDPORYDgM2p5EDLWqc3l.kYRSY0vzVhm.M6",
+    "role": "staff",
+    "createdAt": "2026-06-03T00:00:00.000Z"
+  },
+  {
+    "id": 2002,
+    "name": "Vo Thanh Staff",
+    "email": "staff2@swagstore.test",
+    "address": "SwagStore Warehouse, Ho Chi Minh City",
+    "passwordHash": "$2a$10$.cpVXVZHUecFA/n0/pQDPORYDgM2p5EDLWqc3l.kYRSY0vzVhm.M6",
+    "role": "staff",
+    "createdAt": "2026-06-03T00:00:00.000Z"
+  }
+]

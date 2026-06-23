@@ -6,38 +6,46 @@ const request  = require('supertest');
 const createApp = require('../app');
 const Account  = require('../models/Account');
 const Order    = require('../models/Order');
+const Product  = require('../models/Product');
 
 const accountsFile = path.join(__dirname, '..', 'data', 'accounts.json');
 const ordersFile   = path.join(__dirname, '..', 'data', 'orders.json');
+const productsFile = path.join(__dirname, '..', 'data', 'products.json');
 const accBackup    = accountsFile + '.bak';
 const ordBackup    = ordersFile   + '.bak';
+const prodBackup   = productsFile + '.bak';
 
 let app;
 
 beforeAll(() => {
   if (fs.existsSync(accountsFile)) fs.copyFileSync(accountsFile, accBackup);
   if (fs.existsSync(ordersFile))   fs.copyFileSync(ordersFile,   ordBackup);
+  if (fs.existsSync(productsFile)) fs.copyFileSync(productsFile, prodBackup);
   app = createApp();
 });
 
 afterAll(() => {
   if (fs.existsSync(accBackup)) { fs.copyFileSync(accBackup, accountsFile); fs.unlinkSync(accBackup); }
   if (fs.existsSync(ordBackup)) { fs.copyFileSync(ordBackup, ordersFile);   fs.unlinkSync(ordBackup); }
+  if (fs.existsSync(prodBackup)) { fs.copyFileSync(prodBackup, productsFile); fs.unlinkSync(prodBackup); }
 });
 
 beforeEach(() => {
   fs.writeFileSync(accountsFile, '[]');
   fs.writeFileSync(ordersFile, '[]');
+  if (fs.existsSync(prodBackup)) fs.copyFileSync(prodBackup, productsFile);
 });
 afterEach(() => {
   fs.writeFileSync(accountsFile, '[]');
   fs.writeFileSync(ordersFile, '[]');
+  if (fs.existsSync(prodBackup)) fs.copyFileSync(prodBackup, productsFile);
 });
 
 // ── Helper: login agent ───────────────────────────────────────
-async function loginAgent(email, password) {
+async function loginAgent(email, password, role = 'customer') {
   const agent = request.agent(app);
-  Account.add({ name: 'Test', email, password, address: '1 St' });
+  const account = Account.add({ name: 'Test', email, password, address: '1 St' });
+  if (role !== 'customer') Account.update(account.id, { role });
   await agent.post('/login').send(`email=${email}&password=${password}`);
   return agent;
 }
@@ -62,6 +70,18 @@ describe('GET /', () => {
 });
 
 // ── Cart ──────────────────────────────────────────────────────
+describe('GET /health', () => {
+  test('returns an ok payload for platform health checks', async () => {
+    const res = await request(app).get('/health');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(expect.objectContaining({
+      status: 'ok',
+      service: 'SwagStore',
+    }));
+    expect(res.body.timestamp).toBeDefined();
+  });
+});
+
 describe('Cart routes', () => {
   test('GET /cart returns 200', async () => {
     const res = await request(app).get('/cart');
@@ -189,6 +209,50 @@ describe('Protected routes (require login)', () => {
     const res = await request(app).get('/profile');
     expect(res.status).toBe(302);
     expect(res.headers.location).toMatch(/login/);
+  });
+});
+
+describe('Admin product CRUD routes', () => {
+  test('GET /admin/products redirects to login when anonymous', async () => {
+    const res = await request(app).get('/admin/products');
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toMatch(/login/);
+  });
+
+  test('GET /admin/products blocks non-admin users', async () => {
+    const agent = await loginAgent('customer@x.com', 'pass');
+    const res = await agent.get('/admin/products');
+    expect(res.status).toBe(403);
+  });
+
+  test('staff can access product management', async () => {
+    const agent = await loginAgent('staff@x.com', 'pass', 'staff');
+    const res = await agent.get('/admin/products');
+    expect(res.status).toBe(200);
+    expect(res.text).toMatch(/Product Admin/i);
+  });
+
+  test('staff can create, update, and delete a product', async () => {
+    const agent = await loginAgent('staff-crud@x.com', 'pass', 'staff');
+
+    const create = await agent.post('/admin/products').send(
+      'name=CRUD+Mug&price=12.50&image=%2Fimages%2Fbackpack.svg&category=Accessories&type=Mug&badge=New&desc=Created'
+    );
+    expect(create.status).toBe(302);
+    expect(create.headers.location).toMatch(/created=1/);
+
+    const product = Product.getAll().find(p => p.name === 'CRUD Mug');
+    expect(product).toBeDefined();
+
+    const update = await agent.post(`/admin/products/${product.id}`).send(
+      'name=CRUD+Mug+Updated&price=15.75&image=%2Fimages%2Fbackpack.svg&category=Accessories&type=Mug&badge=Sale&desc=Updated'
+    );
+    expect(update.status).toBe(302);
+    expect(Product.getById(product.id)).toMatchObject({ name: 'CRUD Mug Updated', price: 15.75 });
+
+    const del = await agent.post(`/admin/products/${product.id}/delete`);
+    expect(del.status).toBe(302);
+    expect(Product.getById(product.id)).toBeUndefined();
   });
 });
 
